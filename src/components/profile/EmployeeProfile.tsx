@@ -163,6 +163,24 @@ export const EmployeeProfile: React.FC = () => {
         </div>
       </div>
 
+      {isAdmin && targetEmployee.temporaryPassword && (
+        <div className="bg-[#f8f3e8] border border-[#e8ddc4] rounded-2xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold text-[#6e531e]">Employee login password</p>
+            <p className="font-mono text-sm font-bold text-[#2c332c] mt-1">{targetEmployee.temporaryPassword}</p>
+          </div>
+          {targetEmployee.temporaryPassword && (
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(targetEmployee.temporaryPassword || '')}
+              className="px-3 py-1.5 bg-white border border-[#e8ddc4] rounded-xl text-xs font-semibold text-[#6e531e]"
+            >
+              Copy Password
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Main Employee Header Block */}
       <div className="bg-white rounded-2xl border border-[#e8e6e1] shadow-xs p-6 sm:p-8">
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6">

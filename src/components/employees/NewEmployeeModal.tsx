@@ -40,6 +40,7 @@ export const NewEmployeeModal: React.FC<NewEmployeeModalProps> = ({ isOpen, onCl
   const [location, setLocation] = useState('Gandhinagar Hub');
   const [dateOfJoining, setDateOfJoining] = useState(new Date().toISOString().split('T')[0]);
   const [monthlyWage, setMonthlyWage] = useState('50000');
+  const [initialPassword, setInitialPassword] = useState(() => generateTemporaryPassword('Emp'));
   const [avatarUrl, setAvatarUrl] = useState('');
   const [createdEmployee, setCreatedEmployee] = useState<Employee | null>(null);
   const [copiedId, setCopiedId] = useState(false);
@@ -85,6 +86,7 @@ export const NewEmployeeModal: React.FC<NewEmployeeModalProps> = ({ isOpen, onCl
         email: email || `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${company.name.toLowerCase().replace(/\s+/g, '')}.com`,
         personalEmail: personalEmail || `${firstName.toLowerCase()}.${lastName.toLowerCase()}@gmail.com`,
         mobile: mobile || '+91 98000 00000',
+        passwordHash: initialPassword,
         company: company.name,
         department,
         jobPosition: jobPosition.trim(),
@@ -110,7 +112,7 @@ export const NewEmployeeModal: React.FC<NewEmployeeModalProps> = ({ isOpen, onCl
   const handleCopyCredentials = () => {
     if (createdEmployee) {
       navigator.clipboard.writeText(
-        `Login ID: ${createdEmployee.loginId}\nTemporary Password: ${createdEmployee.passwordHash}\nEmail: ${createdEmployee.email}`
+        `Login ID: ${createdEmployee.loginId}\nTemporary Password: ${createdEmployee.temporaryPassword || initialPassword}\nEmail: ${createdEmployee.email}`
       );
       setCopiedId(true);
       setTimeout(() => setCopiedId(false), 2000);
@@ -125,6 +127,7 @@ export const NewEmployeeModal: React.FC<NewEmployeeModalProps> = ({ isOpen, onCl
     setPersonalEmail('');
     setMobile('');
     setJobPosition('');
+    setInitialPassword(generateTemporaryPassword('Emp'));
     setError(null);
     onClose();
   };
@@ -314,6 +317,20 @@ export const NewEmployeeModal: React.FC<NewEmployeeModalProps> = ({ isOpen, onCl
                   className="w-full px-3.5 py-2.5 bg-[#f8f7f4] border border-[#dedad2] text-[#2c332c] rounded-xl text-sm focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#5a6e5a]/20 focus:border-[#5a6e5a] transition"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#3d463d] mb-1">Initial Password *</label>
+              <input
+                id="new-emp-initial-password"
+                type="text"
+                required
+                minLength={6}
+                value={initialPassword}
+                onChange={(e) => setInitialPassword(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-[#f8f7f4] border border-[#dedad2] text-[#2c332c] rounded-xl text-sm focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#5a6e5a]/20 focus:border-[#5a6e5a] transition"
+              />
+              <p className="text-[11px] text-[#7d857d] mt-1">The employee uses this password for the first login.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

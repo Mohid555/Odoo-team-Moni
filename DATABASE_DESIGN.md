@@ -39,19 +39,19 @@ Do not create all twenty tables before you need them. The five core tables are e
 
 ## Evidence From the Current Project
 
-| Frontend capability | Current source | Data required |
-|---|---|---|
-| Company registration and branding | `SignUp.tsx`, `AuthContext.tsx` | Company name, code, logo, email, phone, address |
-| Login by Login ID or email | `SignIn.tsx`, `server.ts` | Login ID, email, password hash, role |
-| Employee directory | `EmployeesList.tsx`, `EmployeeCard.tsx` | Identity, job, department, location, status, avatar |
-| Employee onboarding | `NewEmployeeModal.tsx`, `HRMSContext.tsx` | Employee profile, temporary password, salary, leave allocation |
-| Resume profile | `ResumeTab.tsx` | About, skills, certifications, interests |
-| Private information | `PrivateInfoTab.tsx` | Address, birth date, nationality, gender, marital status, bank data |
-| Salary information | `SalaryInfoTab.tsx`, `salaryCalculator.ts` | Wage, payroll settings, salary components |
-| Check in/out | `AttendanceModule.tsx`, `HRMSContext.tsx` | Attendance day, check-in, check-out, work hours, overtime |
-| Time-off submission | `NewTimeOffModal.tsx` | Type, dates, days, reason, attachment, status |
-| Time-off approval | `TimeOffModule.tsx`, `HRMSContext.tsx` | Reviewer, decision date, comment, allocation usage |
-| Profile editing | `EmployeeProfile.tsx`, `AuthContext.tsx` | Editable employee fields and audit history |
+| Frontend capability               | Current source                             | Data required                                                       |
+| --------------------------------- | ------------------------------------------ | ------------------------------------------------------------------- |
+| Company registration and branding | `SignUp.tsx`, `AuthContext.tsx`            | Company name, code, logo, email, phone, address                     |
+| Login by Login ID or email        | `SignIn.tsx`, `server.ts`                  | Login ID, email, password hash, role                                |
+| Employee directory                | `EmployeesList.tsx`, `EmployeeCard.tsx`    | Identity, job, department, location, status, avatar                 |
+| Employee onboarding               | `NewEmployeeModal.tsx`, `HRMSContext.tsx`  | Employee profile, temporary password, salary, leave allocation      |
+| Resume profile                    | `ResumeTab.tsx`                            | About, skills, certifications, interests                            |
+| Private information               | `PrivateInfoTab.tsx`                       | Address, birth date, nationality, gender, marital status, bank data |
+| Salary information                | `SalaryInfoTab.tsx`, `salaryCalculator.ts` | Wage, payroll settings, salary components                           |
+| Check in/out                      | `AttendanceModule.tsx`, `HRMSContext.tsx`  | Attendance day, check-in, check-out, work hours, overtime           |
+| Time-off submission               | `NewTimeOffModal.tsx`                      | Type, dates, days, reason, attachment, status                       |
+| Time-off approval                 | `TimeOffModule.tsx`, `HRMSContext.tsx`     | Reviewer, decision date, comment, allocation usage                  |
+| Profile editing                   | `EmployeeProfile.tsx`, `AuthContext.tsx`   | Editable employee fields and audit history                          |
 
 ## Recommended Table Details
 

@@ -81,6 +81,7 @@ export interface Employee {
   // Security
   passwordHash: string;
   isTemporaryPassword?: boolean;
+  temporaryPassword?: string;
   
   // Salary Tab (Admin only)
   salary: SalaryStructure;

@@ -1,0 +1,6 @@
+{
+  "name": "Human Resource Management System",
+  "description": "Comprehensive Human Resource Management System (HRMS) featuring role-based employee directory, interactive attendance tracking, time off requests and approval workflows, rich profile management, and salary structure calculation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

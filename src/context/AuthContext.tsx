@@ -1,83 +1,67 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Company, Employee, UserRole } from '../types';
-import { initialCompany, initialEmployees } from '../mockData';
+import { Company, Employee } from '../types';
+import { api } from '../api';
 import { generateLoginId } from '../utils/idGenerator';
+import { createDefaultSalaryStructure } from '../utils/salaryCalculator';
+
+const emptyCompany: Company = { name: '', code: '' };
 
 interface AuthContextType {
   currentUser: Employee | null;
   company: Company;
   isAuthenticated: boolean;
-  login: (loginIdOrEmail: string, passwordHash: string) => { success: boolean; error?: string };
-  signupAdmin: (companyName: string, name: string, email: string, phone: string, password: string, logoUrl?: string) => void;
+  login: (loginIdOrEmail: string, passwordHash: string) => Promise<{ success: boolean; error?: string }>;
+  signupAdmin: (companyName: string, name: string, email: string, phone: string, password: string, logoUrl?: string) => Promise<void>;
   logout: () => void;
   switchUser: (employeeId: string) => void;
-  updateCurrentUserProfile: (updatedData: Partial<Employee>) => void;
-  changePassword: (oldPassword: string, newPassword: string) => { success: boolean; error?: string };
+  updateCurrentUserProfile: (updatedData: Partial<Employee>) => Promise<void>;
+  changePassword: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [company, setCompany] = useState<Company>(() => {
-    const saved = localStorage.getItem('hrms_company');
-    return saved ? JSON.parse(saved) : initialCompany;
-  });
-
-  const [employees, setEmployees] = useState<Employee[]>(() => {
-    const saved = localStorage.getItem('hrms_employees');
-    return saved ? JSON.parse(saved) : initialEmployees;
-  });
+  const [company, setCompany] = useState<Company>(emptyCompany);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
-    const saved = localStorage.getItem('hrms_current_user_id');
-    return saved || 'emp-1'; // Default: Amit Sharma (Admin)
+    return '';
   });
 
   useEffect(() => {
-    localStorage.setItem('hrms_company', JSON.stringify(company));
-  }, [company]);
-
-  useEffect(() => {
-    localStorage.setItem('hrms_employees', JSON.stringify(employees));
-  }, [employees]);
-
-  useEffect(() => {
-    if (currentUserId) {
-      localStorage.setItem('hrms_current_user_id', currentUserId);
-    } else {
-      localStorage.removeItem('hrms_current_user_id');
-    }
-  }, [currentUserId]);
+    api.bootstrap().then((data) => {
+      setCompany(data.company || emptyCompany);
+      setEmployees(Array.isArray(data.employees) ? data.employees : []);
+      const savedUserId = sessionStorage.getItem('hrms_current_user_id');
+      if (savedUserId && Array.isArray(data.employees) && data.employees.some((employee) => employee.id === savedUserId)) setCurrentUserId(savedUserId);
+    }).catch((error) => {
+      setBootstrapError(error instanceof Error ? error.message : 'Could not connect to the API');
+      console.error(error);
+    });
+  }, []);
 
   const currentUser = employees.find((e) => e.id === currentUserId) || null;
   const isAuthenticated = !!currentUser;
 
-  const login = (loginIdOrEmail: string, password: string): { success: boolean; error?: string } => {
-    const query = loginIdOrEmail.trim().toLowerCase();
-    const user = employees.find(
-      (e) => e.loginId.toLowerCase() === query || e.email.toLowerCase() === query
-    );
-
-    if (!user) {
-      return { success: false, error: 'No account found with this Login ID or Email' };
-    }
-
-    if (user.passwordHash !== password && password !== 'password123') {
-      return { success: false, error: 'Incorrect password. Try "password123" for demo accounts.' };
-    }
-
-    setCurrentUserId(user.id);
-    return { success: true };
+  const login = async (loginIdOrEmail: string, password: string) => {
+    try {
+      const { employee } = await api.login(loginIdOrEmail, password);
+      setEmployees((prev) => prev.some((item) => item.id === employee.id) ? prev.map((item) => item.id === employee.id ? employee : item) : [...prev, employee]);
+      setCurrentUserId(employee.id);
+      sessionStorage.setItem('hrms_current_user_id', employee.id);
+      return { success: true };
+    } catch (error) { return { success: false, error: error instanceof Error ? error.message : 'Authentication failed' }; }
   };
 
-  const signupAdmin = (
+  const signupAdmin = async (
     companyName: string,
     name: string,
     email: string,
     phone: string,
     password: string,
     logoUrl?: string
-  ) => {
+  ): Promise<void> => {
     const cleanCompany = companyName.trim();
     const parts = name.trim().split(' ');
     const firstName = parts[0] || 'Admin';
@@ -132,16 +116,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         panNumber: 'AAAPA1234A',
       },
       passwordHash: password,
-      salary: initialEmployees[0].salary,
+      salary: createDefaultSalaryStructure(50000),
     };
 
-    setCompany(newCompany);
-    setEmployees((prev) => [newAdmin, ...prev]);
-    setCurrentUserId(newAdmin.id);
+    const savedCompany = await api.createCompany(newCompany);
+    const employee = await api.createEmployee(newAdmin);
+    setCompany(savedCompany);
+    setEmployees((prev) => [employee, ...prev]);
+    setCurrentUserId(employee.id);
+    sessionStorage.setItem('hrms_current_user_id', employee.id);
   };
 
   const logout = () => {
     setCurrentUserId('');
+    sessionStorage.removeItem('hrms_current_user_id');
   };
 
   const switchUser = (employeeId: string) => {
@@ -151,30 +139,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateCurrentUserProfile = (updatedData: Partial<Employee>) => {
+  const updateCurrentUserProfile = async (updatedData: Partial<Employee>) => {
     if (!currentUser) return;
-    setEmployees((prev) =>
-      prev.map((e) => (e.id === currentUser.id ? { ...e, ...updatedData } : e))
-    );
+    const updated = await api.updateEmployee(currentUser.id, updatedData);
+    setEmployees((prev) => prev.map((e) => (e.id === currentUser.id ? updated : e)));
   };
 
-  const changePassword = (oldPassword: string, newPassword: string): { success: boolean; error?: string } => {
+  const changePassword = async (oldPassword: string, newPassword: string) => {
     if (!currentUser) return { success: false, error: 'Not authenticated' };
-    if (currentUser.passwordHash !== oldPassword && oldPassword !== 'password123') {
-      return { success: false, error: 'Current password is incorrect' };
-    }
     if (newPassword.length < 6) {
       return { success: false, error: 'New password must be at least 6 characters' };
     }
 
-    setEmployees((prev) =>
-      prev.map((e) =>
-        e.id === currentUser.id
-          ? { ...e, passwordHash: newPassword, isTemporaryPassword: false }
-          : e
-      )
-    );
-    return { success: true };
+    try { await api.updateEmployee(currentUser.id, { passwordHash: newPassword, isTemporaryPassword: false }); return { success: true }; }
+    catch (error) { return { success: false, error: error instanceof Error ? error.message : 'Failed to change password' }; }
   };
 
   return (

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Lock, Mail, ShieldAlert, ArrowRight, UserCheck, Sparkles, Building2 } from 'lucide-react';
+import { Lock, Mail, ShieldAlert, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { initialEmployees } from '../../mockData';
 
 interface SignInProps {
   onNavigateToSignUp: () => void;
@@ -14,24 +13,19 @@ export const SignIn: React.FC<SignInProps> = ({ onNavigateToSignUp }) => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      const result = login(loginIdOrEmail, password);
+    try {
+      const result = await login(loginIdOrEmail, password);
       if (!result.success) {
         setError(result.error || 'Authentication failed');
       }
+    } finally {
       setIsLoading(false);
-    }, 400);
-  };
-
-  const handleQuickDemoFill = (idOrEmail: string, pass: string = 'password123') => {
-    setLoginIdOrEmail(idOrEmail);
-    setPassword(pass);
-    setError(null);
+    }
   };
 
   return (
@@ -84,7 +78,7 @@ export const SignIn: React.FC<SignInProps> = ({ onNavigateToSignUp }) => {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-bold text-slate-700">Password</label>
-                <span className="text-[11px] text-slate-400">Default: password123</span>
+                <span className="text-[11px] text-slate-400">Use your company credentials</span>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -129,47 +123,6 @@ export const SignIn: React.FC<SignInProps> = ({ onNavigateToSignUp }) => {
             </div>
           </form>
 
-          {/* Quick Demo Sign In presets for reviewers */}
-          <div className="mt-6 pt-5 border-t border-dashed border-slate-200">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 mb-2.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>1-Click Test Accounts</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                id="demo-login-admin"
-                onClick={() => handleQuickDemoFill('OIAMSH20210001', 'password123')}
-                className="flex items-center gap-2 p-2 rounded-xl border border-purple-200 bg-purple-50/60 hover:bg-purple-100 text-left transition cursor-pointer"
-              >
-                <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                  HR
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-purple-900 truncate">Amit Sharma</p>
-                  <p className="text-[10px] text-purple-700">Admin / HR Officer</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                id="demo-login-employee"
-                onClick={() => handleQuickDemoFill('OIJODO20220002', 'password123')}
-                className="flex items-center gap-2 p-2 rounded-xl border border-sky-200 bg-sky-50/60 hover:bg-sky-100 text-left transition cursor-pointer"
-              >
-                <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                  JD
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-sky-900 truncate">John Doe</p>
-                  <p className="text-[10px] text-sky-700">Frontend Engineer</p>
-                </div>
-              </button>
-            </div>
-            <p className="mt-2 text-[10px] text-slate-400 text-center">
-              *Employees cannot self-register; HR Admins onboard employees with auto-generated IDs.
-            </p>
-          </div>
         </div>
       </div>
     </div>

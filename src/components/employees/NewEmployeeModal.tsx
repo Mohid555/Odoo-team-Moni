@@ -43,6 +43,8 @@ export const NewEmployeeModal: React.FC<NewEmployeeModalProps> = ({ isOpen, onCl
   const [avatarUrl, setAvatarUrl] = useState('');
   const [createdEmployee, setCreatedEmployee] = useState<Employee | null>(null);
   const [copiedId, setCopiedId] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const nextSerial = employees.length + 1;
   const joiningYear = dateOfJoining ? new Date(dateOfJoining).getFullYear() : new Date().getFullYear();
@@ -64,31 +66,45 @@ export const NewEmployeeModal: React.FC<NewEmployeeModalProps> = ({ isOpen, onCl
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    if (!firstName.trim() || !lastName.trim() || !jobPosition.trim() || !dateOfJoining || !monthlyWage) {
+      setError('Please complete all required fields.');
+      return;
+    }
+
     const wageNum = parseFloat(monthlyWage) || 50000;
 
-    const newEmp = addNewEmployee({
-      firstName,
-      lastName,
-      email: email || `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${company.name.toLowerCase().replace(/\s+/g, '')}.com`,
-      personalEmail: personalEmail || `${firstName.toLowerCase()}.${lastName.toLowerCase()}@gmail.com`,
-      mobile: mobile || '+91 98000 00000',
-      company: company.name,
-      department,
-      jobPosition: jobPosition || 'Software Engineer',
-      manager,
-      location,
-      dateOfJoining,
-      joiningYear,
-      serialNumber: nextSerial,
-      avatarUrl:
-        avatarUrl ||
-        `https://images.unsplash.com/photo-${1534528741775 + (nextSerial % 10)}?w=200&auto=format&fit=crop&q=80`,
-      salary: createDefaultSalaryStructure(wageNum),
-    });
+    setIsSubmitting(true);
+    try {
+      const newEmp = await addNewEmployee({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email || `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${company.name.toLowerCase().replace(/\s+/g, '')}.com`,
+        personalEmail: personalEmail || `${firstName.toLowerCase()}.${lastName.toLowerCase()}@gmail.com`,
+        mobile: mobile || '+91 98000 00000',
+        company: company.name,
+        department,
+        jobPosition: jobPosition.trim(),
+        manager,
+        location,
+        dateOfJoining,
+        joiningYear,
+        serialNumber: nextSerial,
+        avatarUrl:
+          avatarUrl ||
+          `https://images.unsplash.com/photo-${1534528741775 + (nextSerial % 10)}?w=200&auto=format&fit=crop&q=80`,
+        salary: createDefaultSalaryStructure(wageNum),
+      });
 
-    setCreatedEmployee(newEmp);
+      setCreatedEmployee(newEmp);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Could not create employee record.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCopyCredentials = () => {
@@ -109,6 +125,7 @@ export const NewEmployeeModal: React.FC<NewEmployeeModalProps> = ({ isOpen, onCl
     setPersonalEmail('');
     setMobile('');
     setJobPosition('');
+    setError(null);
     onClose();
   };
 
@@ -189,6 +206,12 @@ export const NewEmployeeModal: React.FC<NewEmployeeModalProps> = ({ isOpen, onCl
         ) : (
           /* Create Form */
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            {error && (
+              <div className="p-3 bg-[#faebe8] border border-[#f0c8c2] text-[#9e4236] text-xs rounded-xl flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
             {/* Live Login ID preview banner */}
             <div className="p-4 bg-[#f2f6f2] border border-[#cfe0cf] rounded-2xl flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -345,9 +368,10 @@ export const NewEmployeeModal: React.FC<NewEmployeeModalProps> = ({ isOpen, onCl
               <button
                 type="submit"
                 id="submit-new-emp-btn"
+                disabled={isSubmitting}
                 className="px-6 py-2.5 text-xs font-bold text-white bg-[#384538] hover:bg-[#2d382d] rounded-xl shadow-xs hover:shadow-md transition cursor-pointer"
               >
-                Create Employee Record
+                {isSubmitting ? 'Creating Employee...' : 'Create Employee Record'}
               </button>
             </div>
           </form>

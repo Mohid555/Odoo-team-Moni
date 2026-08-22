@@ -7,12 +7,7 @@ import {
   SalaryStructure,
   TimeOffType,
 } from '../types';
-import {
-  initialEmployees,
-  initialAttendanceRecords,
-  initialTimeOffRequests,
-  defaultAllocations,
-} from '../mockData';
+import { api } from '../api';
 import { useAuth } from './AuthContext';
 import { generateLoginId, generateTemporaryPassword } from '../utils/idGenerator';
 import { calculateSalaryStructure, createDefaultSalaryStructure } from '../utils/salaryCalculator';
@@ -35,14 +30,14 @@ interface HRMSContextType {
   setSelectedEmployeeId: (id: string | null) => void;
   
   // Employee management
-  addNewEmployee: (data: Partial<Employee>) => Employee;
-  updateEmployee: (id: string, data: Partial<Employee>) => void;
+  addNewEmployee: (data: Partial<Employee>) => Promise<Employee>;
+  updateEmployee: (id: string, data: Partial<Employee>) => Promise<void>;
   getEmployeeById: (id: string) => Employee | undefined;
-  updateEmployeeSalary: (employeeId: string, salary: SalaryStructure) => void;
+  updateEmployeeSalary: (employeeId: string, salary: SalaryStructure) => Promise<void>;
   
   // Attendance actions
-  toggleCheckIn: () => void;
-  addAttendanceRecord: (record: Omit<AttendanceRecord, 'id'>) => void;
+  toggleCheckIn: () => Promise<void>;
+  addAttendanceRecord: (record: Omit<AttendanceRecord, 'id'>) => Promise<void>;
   
   // Time Off actions
   createTimeOffRequest: (request: {
@@ -54,9 +49,9 @@ interface HRMSContextType {
     reason: string;
     attachmentName?: string;
     attachmentDataUrl?: string;
-  }) => void;
-  approveTimeOffRequest: (requestId: string, comment?: string) => void;
-  rejectTimeOffRequest: (requestId: string, comment?: string) => void;
+  }) => Promise<void>;
+  approveTimeOffRequest: (requestId: string, comment?: string) => Promise<void>;
+  rejectTimeOffRequest: (requestId: string, comment?: string) => Promise<void>;
   getEmployeeAllocation: (employeeId: string) => TimeOffAllocation;
 }
 
@@ -65,59 +60,28 @@ const HRMSContext = createContext<HRMSContextType | undefined>(undefined);
 export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, company } = useAuth();
 
-  const [employees, setEmployees] = useState<Employee[]>(() => {
-    const saved = localStorage.getItem('hrms_employees_data');
-    return saved ? JSON.parse(saved) : initialEmployees;
-  });
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(() => {
-    const saved = localStorage.getItem('hrms_attendance_records');
-    return saved ? JSON.parse(saved) : initialAttendanceRecords;
-  });
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
 
-  const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>(() => {
-    const saved = localStorage.getItem('hrms_timeoff_requests');
-    return saved ? JSON.parse(saved) : initialTimeOffRequests;
-  });
+  const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
 
-  const [allocations, setAllocations] = useState<Record<string, TimeOffAllocation>>(() => {
-    const saved = localStorage.getItem('hrms_allocations');
-    return saved ? JSON.parse(saved) : defaultAllocations;
-  });
+  const [allocations, setAllocations] = useState<Record<string, TimeOffAllocation>>({});
 
   const [activeNavTab, setActiveNavTab] = useState<'employees' | 'attendance' | 'timeoff' | 'profile'>('employees');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
+  useEffect(() => {
+    api.bootstrap().then((data) => {
+      setEmployees(Array.isArray(data.employees) ? data.employees : []);
+      setAttendanceRecords(Array.isArray(data.attendanceRecords) ? data.attendanceRecords : []);
+      setTimeOffRequests(Array.isArray(data.timeOffRequests) ? data.timeOffRequests : []);
+      setAllocations(data.allocations && typeof data.allocations === 'object' ? data.allocations : {});
+    }).catch((error) => console.error(error));
+  }, []);
+
   // Check In state per user
-  const [checkInMap, setCheckInMap] = useState<Record<string, CheckInInfo>>(() => {
-    const saved = localStorage.getItem('hrms_checkin_map');
-    return saved
-      ? JSON.parse(saved)
-      : {
-          'emp-1': { isCheckedIn: true, checkInTime: '09:15 AM', checkInTimestamp: Date.now() - 3.5 * 3600 * 1000 },
-          'emp-2': { isCheckedIn: true, checkInTime: '09:30 AM', checkInTimestamp: Date.now() - 3.25 * 3600 * 1000 },
-        };
-  });
-
-  useEffect(() => {
-    localStorage.setItem('hrms_employees_data', JSON.stringify(employees));
-  }, [employees]);
-
-  useEffect(() => {
-    localStorage.setItem('hrms_attendance_records', JSON.stringify(attendanceRecords));
-  }, [attendanceRecords]);
-
-  useEffect(() => {
-    localStorage.setItem('hrms_timeoff_requests', JSON.stringify(timeOffRequests));
-  }, [timeOffRequests]);
-
-  useEffect(() => {
-    localStorage.setItem('hrms_allocations', JSON.stringify(allocations));
-  }, [allocations]);
-
-  useEffect(() => {
-    localStorage.setItem('hrms_checkin_map', JSON.stringify(checkInMap));
-  }, [checkInMap]);
+  const [checkInMap, setCheckInMap] = useState<Record<string, CheckInInfo>>({});
 
   const currentUserId = currentUser?.id || '';
   const checkInInfo: CheckInInfo = checkInMap[currentUserId] || {
@@ -130,22 +94,17 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return employees.find((e) => e.id === id);
   };
 
-  const updateEmployee = (id: string, data: Partial<Employee>) => {
-    setEmployees((prev) =>
-      prev.map((emp) => (emp.id === id ? { ...emp, ...data } : emp))
-    );
+  const updateEmployee = async (id: string, data: Partial<Employee>) => {
+    const updated = await api.updateEmployee(id, data);
+    setEmployees((prev) => prev.map((emp) => (emp.id === id ? updated : emp)));
   };
 
-  const updateEmployeeSalary = (employeeId: string, salary: SalaryStructure) => {
+  const updateEmployeeSalary = async (employeeId: string, salary: SalaryStructure) => {
     const recalculated = calculateSalaryStructure(salary);
-    setEmployees((prev) =>
-      prev.map((emp) =>
-        emp.id === employeeId ? { ...emp, salary: recalculated } : emp
-      )
-    );
+    await updateEmployee(employeeId, { salary: recalculated });
   };
 
-  const addNewEmployee = (data: Partial<Employee>): Employee => {
+  const addNewEmployee = async (data: Partial<Employee>): Promise<Employee> => {
     const firstName = data.firstName?.trim() || 'New';
     const lastName = data.lastName?.trim() || 'Employee';
     const fullName = `${firstName} ${lastName}`;
@@ -205,7 +164,8 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       salary: data.salary || createDefaultSalaryStructure(50000),
     };
 
-    setEmployees((prev) => [newEmp, ...prev]);
+    const savedEmployee = await api.createEmployee(newEmp);
+    setEmployees((prev) => [savedEmployee, ...prev]);
 
     // Initialize allocations
     setAllocations((prev) => ({
@@ -219,10 +179,10 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
     }));
 
-    return newEmp;
+    return savedEmployee;
   };
 
-  const toggleCheckIn = () => {
+  const toggleCheckIn = async () => {
     if (!currentUser) return;
     const now = new Date();
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -244,40 +204,11 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       }));
 
-      // Update today's attendance record
-      setAttendanceRecords((prev) => {
-        const existingIndex = prev.findIndex(
-          (r) => r.employeeId === currentUser.id && r.date === todayStr
-        );
-        if (existingIndex >= 0) {
-          const updated = [...prev];
-          updated[existingIndex] = {
-            ...updated[existingIndex],
-            checkOut: timeString,
-            workHours: durationHours,
-            extraHours: extra,
-            status: 'present',
-          };
-          return updated;
-        } else {
-          return [
-            {
-              id: 'att-' + Date.now(),
-              employeeId: currentUser.id,
-              employeeName: currentUser.fullName,
-              employeeAvatar: currentUser.avatarUrl,
-              date: todayStr,
-              checkIn: checkInInfo.checkInTime || timeString,
-              checkOut: timeString,
-              workHours: durationHours,
-              breakMinutes: 60,
-              extraHours: extra,
-              status: 'present',
-            },
-            ...prev,
-          ];
-        }
-      });
+      const existing = attendanceRecords.find((r) => r.employeeId === currentUser.id && r.date === todayStr);
+      const saved = existing
+        ? await api.updateAttendance(existing.id, { ...existing, checkOut: timeString, workHours: durationHours, extraHours: extra, status: 'present' })
+        : await api.createAttendance({ employeeId: currentUser.id, employeeName: currentUser.fullName, employeeAvatar: currentUser.avatarUrl, date: todayStr, checkIn: checkInInfo.checkInTime || timeString, checkOut: timeString, workHours: durationHours, breakMinutes: 60, extraHours: extra, status: 'present' });
+      setAttendanceRecords((prev) => existing ? prev.map((record) => record.id === saved.id ? saved : record) : [saved, ...prev]);
     } else {
       // CHECK IN
       setCheckInMap((prev) => ({
@@ -294,47 +225,16 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         prev.map((e) => (e.id === currentUser.id ? { ...e, status: 'present' } : e))
       );
 
-      // Create or update today's attendance record
-      setAttendanceRecords((prev) => {
-        const existingIndex = prev.findIndex(
-          (r) => r.employeeId === currentUser.id && r.date === todayStr
-        );
-        if (existingIndex >= 0) {
-          const updated = [...prev];
-          updated[existingIndex] = {
-            ...updated[existingIndex],
-            checkIn: timeString,
-            checkOut: '-',
-            status: 'present',
-          };
-          return updated;
-        } else {
-          return [
-            {
-              id: 'att-' + Date.now(),
-              employeeId: currentUser.id,
-              employeeName: currentUser.fullName,
-              employeeAvatar: currentUser.avatarUrl,
-              date: todayStr,
-              checkIn: timeString,
-              checkOut: '-',
-              workHours: 0,
-              breakMinutes: 60,
-              extraHours: 0,
-              status: 'present',
-            },
-            ...prev,
-          ];
-        }
-      });
+      const existing = attendanceRecords.find((r) => r.employeeId === currentUser.id && r.date === todayStr);
+      const saved = existing
+        ? await api.updateAttendance(existing.id, { ...existing, checkIn: timeString, checkOut: '-', status: 'present' })
+        : await api.createAttendance({ employeeId: currentUser.id, employeeName: currentUser.fullName, employeeAvatar: currentUser.avatarUrl, date: todayStr, checkIn: timeString, checkOut: '-', workHours: 0, breakMinutes: 60, extraHours: 0, status: 'present' });
+      setAttendanceRecords((prev) => existing ? prev.map((record) => record.id === saved.id ? saved : record) : [saved, ...prev]);
     }
   };
 
-  const addAttendanceRecord = (record: Omit<AttendanceRecord, 'id'>) => {
-    const newRec: AttendanceRecord = {
-      ...record,
-      id: 'att-' + Date.now(),
-    };
+  const addAttendanceRecord = async (record: Omit<AttendanceRecord, 'id'>) => {
+    const newRec = await api.createAttendance(record);
     setAttendanceRecords((prev) => [newRec, ...prev]);
   };
 
@@ -350,7 +250,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   };
 
-  const createTimeOffRequest = (data: {
+  const createTimeOffRequest = async (data: {
     employeeId: string;
     timeOffType: TimeOffType;
     startDate: string;
@@ -380,10 +280,11 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       appliedDate: new Date().toISOString().split('T')[0],
     };
 
-    setTimeOffRequests((prev) => [newReq, ...prev]);
+    const saved = await api.createTimeOff(newReq);
+    setTimeOffRequests((prev) => [saved, ...prev]);
   };
 
-  const approveTimeOffRequest = (requestId: string, comment?: string) => {
+  const approveTimeOffRequest = async (requestId: string, comment?: string) => {
     const req = timeOffRequests.find((r) => r.id === requestId);
     if (!req) return;
 
@@ -391,17 +292,10 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const todayStr = new Date().toISOString().split('T')[0];
 
     // Update request status
+    const saved = await api.reviewTimeOff(requestId, 'approved', reviewerName, comment);
     setTimeOffRequests((prev) =>
       prev.map((r) =>
-        r.id === requestId
-          ? {
-              ...r,
-              status: 'approved',
-              reviewedBy: reviewerName,
-              reviewedDate: todayStr,
-              reviewComment: comment || 'Approved by HR.',
-            }
-          : r
+        r.id === requestId ? saved : r
       )
     );
 
@@ -438,21 +332,14 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const rejectTimeOffRequest = (requestId: string, comment?: string) => {
+  const rejectTimeOffRequest = async (requestId: string, comment?: string) => {
     const reviewerName = currentUser?.fullName || 'HR Admin';
     const todayStr = new Date().toISOString().split('T')[0];
 
+    const saved = await api.reviewTimeOff(requestId, 'rejected', reviewerName, comment);
     setTimeOffRequests((prev) =>
       prev.map((r) =>
-        r.id === requestId
-          ? {
-              ...r,
-              status: 'rejected',
-              reviewedBy: reviewerName,
-              reviewedDate: todayStr,
-              reviewComment: comment || 'Request declined by HR.',
-            }
-          : r
+        r.id === requestId ? saved : r
       )
     );
   };

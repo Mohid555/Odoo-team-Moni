@@ -16,6 +16,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onNavigateToSignIn }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -28,9 +29,14 @@ export const SignUp: React.FC<SignUpProps> = ({ onNavigateToSignIn }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!companyName.trim() || !name.trim() || !email.trim() || !phone.trim()) {
+      setError('Please complete all required fields.');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -42,7 +48,14 @@ export const SignUp: React.FC<SignUpProps> = ({ onNavigateToSignIn }) => {
       return;
     }
 
-    signupAdmin(companyName, name, email, phone, password, logoUrl);
+    setIsSubmitting(true);
+    try {
+      await signupAdmin(companyName, name, email, phone, password, logoUrl);
+    } catch (signupError) {
+      setError(signupError instanceof Error ? signupError.message : 'Could not create the account. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -241,9 +254,10 @@ export const SignUp: React.FC<SignUpProps> = ({ onNavigateToSignIn }) => {
               <button
                 type="submit"
                 id="signup-submit-btn"
+                disabled={isSubmitting}
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 shadow-md transition-all cursor-pointer"
               >
-                <span>Sign Up & Create Workspace</span>
+                <span>{isSubmitting ? 'Creating Account...' : 'Sign Up & Create Workspace'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

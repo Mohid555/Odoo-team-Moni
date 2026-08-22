@@ -19,7 +19,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -33,7 +33,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
       return;
     }
 
-    const result = changePassword(oldPassword, newPassword);
+    const result = await changePassword(oldPassword, newPassword);
     if (!result.success) {
       setError(result.error || 'Failed to change password');
     } else {
